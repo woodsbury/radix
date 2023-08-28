@@ -218,9 +218,18 @@ func assertKeysSlot(keys []string) error {
 
 // may return nil, nil if no pool for the addr.
 func (c *Cluster) rpool(addr string) (client Client, err error) {
+	type ready interface {
+		Ready() bool
+	}
+
 	err = c.proc.WithRLock(func() error {
 		if addr == "" {
 			for _, client = range c.pools {
+				if r, ok := client.(ready); ok {
+					if !r.Ready() {
+						continue
+					}
+				}
 				return nil
 			}
 			return errors.New("no Clients available")
