@@ -477,3 +477,17 @@ func (p *pool) Close() error {
 		return nil
 	})
 }
+
+func (p *pool) Ready() bool {
+	var ready bool
+	err := p.proc.WithRLock(func() error {
+		ready = p.conns.len() > 0
+		return nil
+	})
+
+	if err != nil {
+		return false
+	}
+
+	return ready
+}

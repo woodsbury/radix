@@ -455,6 +455,10 @@ func (c *Cluster) syncEvery(ctx context.Context, d time.Duration) {
 }
 
 func (c *Cluster) clientForKey(key string, random, secondary bool) (Client, string, error) {
+	type ready interface {
+		Ready() bool
+	}
+
 	var addr string
 	var client Client
 	err := c.proc.WithRLock(func() error {
@@ -479,16 +483,25 @@ func (c *Cluster) clientForKey(key string, random, secondary bool) (Client, stri
 
 		if primAddr == "" {
 			return fmt.Errorf("could not find primary address for key %q", key)
-		} else if secondary {
+		}
+
+		if secondary {
 			for addr = range c.secondaries[primAddr] {
+				client = c.pools[addr]
+				if r, ok := client.(ready); ok {
+					if !r.Ready() {
+						continue
+					}
+				}
+
 				break
 			}
 		}
 		if addr == "" {
 			addr = primAddr
+			client = c.pools[addr]
 		}
 
-		client = c.pools[addr]
 		return nil
 	})
 	if err != nil {
